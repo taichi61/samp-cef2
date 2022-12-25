@@ -29,18 +29,16 @@ jobs:
         sudo dpkg --add-architecture i386 
         sudo apt-get update 
         sudo apt-get install build-essential g++-multilib -y
-
     - uses: actions/checkout@v2
     - name: Build server plugin
       run: |
         cargo build --package server --release
         strip -s target/release/libserver.so -o stripped.so
-
     - uses: actions/upload-artifact@v2
       with:
         name: cef-${{ matrix.os }}.so
         path: stripped.so
-
+        
   build_server_centos:
     runs-on: ubuntu-latest
     container: centos:7.5.1804
@@ -60,12 +58,11 @@ jobs:
       run: |
         cargo build --package server --release
         strip -s target/release/libserver.so -o stripped.so
-
     - uses: actions/upload-artifact@v2
       with:
         name: cef-centos-7.so
         path: stripped.so
-
+        
   build_server_debian:
     runs-on: ubuntu-latest
     container: debian:${{ matrix.os }}
@@ -76,10 +73,12 @@ jobs:
     steps:
     - name: Install i386 deps
       run: |
+        apt-get -qq update
+        apt-get -y upgrade
         dpkg --add-architecture i386 
-        apt-get update
+        apt-get -y update
+        apt-get install lib32z1 -y
         apt-get install build-essential curl make g++-multilib -y
-
     - name: Install nightly rust
       uses: actions-rs/toolchain@v1
       with:
@@ -91,7 +90,6 @@ jobs:
       run: |
         cargo build --package server --release
         strip -s target/release/libserver.so -o stripped.so
-
     - uses: actions/upload-artifact@v2
       with:
         name: cef-debian-${{ matrix.os }}.so
@@ -105,7 +103,6 @@ jobs:
         Write-Output "DX_SDK_DIR=${env:TEMP}/dxsdk" >> ${env:GITHUB_ENV}
         Write-Output "DX_SDK=${env:TEMP}/dxsdk/Lib/x86" >> ${env:GITHUB_ENV}
         Write-Output "CEF_PATH=${env:TEMP}/cef" >> ${env:GITHUB_ENV}
-
     - name: DirectX SDK cache
       id: dx-cache
       uses: actions/cache@v2
@@ -132,7 +129,7 @@ jobs:
     - name: Download CEF static library
       if: steps.cef-cache.outputs.cache-hit != 'true'
       run: |
-        curl -L https://github.com/ZOTTCE/samp-cef/releases/download/v1.1-beta/libcef.lib -o libcef.lib
+        curl -L https://github.com/dev-mosaic/samp-cef/releases/download/v1.1-beta/libcef.lib -o libcef.lib
         mkdir $CEF_PATH
         mv libcef.lib $CEF_PATH/libcef.lib
       shell: bash
@@ -145,13 +142,15 @@ jobs:
 
     - uses: actions/checkout@v2
     - name: Build client
-      run: cargo build --release
+      run: | 
+        rustup toolchain install nightly-2022-11-06-i686
+        cargo +nightly-2022-11-06-i686 build --release
       shell: bash
 
     - name: Make a package
       run: |
         mkdir redist && cd redist
-        curl -L https://github.com/ZOTTCE/samp-cef/releases/download/v1.1-beta/cef.zip -o cef_redist.zip
+        curl -L https://github.com/dev-mosaic/samp-cef/releases/download/v1.1-beta/cef.zip -o cef_redist.zip
         7z x cef_redist.zip -ocef
         cp ../target/release/client.dll cef/client.dll
         cp ../target/release/renderer.exe cef/renderer.exe
